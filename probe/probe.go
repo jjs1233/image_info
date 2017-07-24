@@ -30,11 +30,14 @@ func ImgDownload(url string, store string) (p Probe, err error) {
 	} else {
 		return p, errors.New("wrong download url")
 	}
+	p.Filename = name
 
 	out, err := os.Create(store + "/" + name)
 	if err != nil {
 		return
 	}
+	p.Filepath = store + "/" + name
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return
@@ -43,10 +46,14 @@ func ImgDownload(url string, store string) (p Probe, err error) {
 	if err != nil {
 		return
 	}
+	p.Type = resp.Header["Content-Type"][0]
+
 	size, err := io.Copy(out, bytes.NewReader(pix))
 	if err != nil {
 		return
 	}
+	p.Filesize = strconv.FormatInt(size, 10)
+
 	imageWidth, err := p.GetWidth()
 	if err != nil {
 		return
@@ -63,13 +70,10 @@ func ImgDownload(url string, store string) (p Probe, err error) {
 	defer out.Close()
 	defer resp.Body.Close()
 
-	p.Filename = name
-	p.Filesize = string(size)
-	p.Filepath = store + "/" + name
-	p.Type = resp.Header["Content-Type"][0]
-	p.Width = string(imageWidth)
-	p.Height = string(imageHeight)
+	p.Width = strconv.Itoa(imageWidth)
+	p.Height = strconv.Itoa(imageHeight)
 	p.Colorweave = colorweave
+	defer p.Destroy()
 	return
 }
 
@@ -139,7 +143,6 @@ func (p *Probe) GetWidth() (width int, err error) {
 		return
 	}
 	defer reader.Close()
-
 	image, _, err := image.Decode(reader)
 	if err != nil {
 		return
@@ -207,13 +210,10 @@ func (p *Probe) GetColorweave() (colorMap map[string]float64, err error) {
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(keys)))
 
-	fmt.Println(keys)
-
 	ReverseColorCounter := ReverseMap(ColorCounter)
 
 	colorMap = make(map[string]float64)
 	for _, val := range keys[:Limit] {
-		fmt.Println(float64(val) / float64(TotalPixels))
 		size, err := strconv.ParseFloat(fmt.Sprintf("%.5f", float64(val)/float64(TotalPixels)), 64)
 		if err != nil {
 			break
