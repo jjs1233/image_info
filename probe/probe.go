@@ -33,12 +33,17 @@ func ImgDownload(url string, store string) (p Probe, err error) {
 	p.Filename = name
 
 	out, err := os.Create(store + "/" + name)
+	defer out.Close()
 	if err != nil {
 		return
 	}
 	p.Filepath = store + "/" + name
 
+	defer p.Destroy()
+
 	resp, err := http.Get(url)
+
+	defer resp.Body.Close()
 	if err != nil {
 		return
 	}
@@ -54,26 +59,21 @@ func ImgDownload(url string, store string) (p Probe, err error) {
 	}
 	p.Filesize = strconv.FormatInt(size, 10)
 
-	imageWidth, err := p.GetWidth()
+	imagePoint, err := p.GetSize()
 	if err != nil {
 		return
 	}
-	imageHeight, err := p.GetHeight()
-	if err != nil {
-		return
-	}
+	imageWidth := imagePoint.X
+	imageHeight := imagePoint.Y
+
 	colorweave, err := p.GetColorweave()
 	if err != nil {
 		return
 	}
 
-	defer out.Close()
-	defer resp.Body.Close()
-
 	p.Width = strconv.Itoa(imageWidth)
 	p.Height = strconv.Itoa(imageHeight)
 	p.Colorweave = colorweave
-	defer p.Destroy()
 	return
 }
 
@@ -193,7 +193,7 @@ func (p *Probe) GetColorweave() (colorMap map[string]float64, err error) {
 			pixel := image.At(i, j)
 			red, green, blue, _ := pixel.RGBA()
 			RGBTuple := []int{int(red / 255), int(green / 255), int(blue / 255)}
-			ColorName := FindClosestColor(RGBTuple, "css21")
+			ColorName := FindClosestColor(RGBTuple, "css3")
 			_, present := ColorCounter[ColorName]
 			if present {
 				ColorCounter[ColorName] += 1
