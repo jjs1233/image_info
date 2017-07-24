@@ -112,6 +112,21 @@ func (p *Probe) GetSize() (point image.Point, err error) {
 	return image.Bounds().Size(), nil
 }
 
+func (p *Probe) GetType() (fileType string, err error) {
+	reader, err := os.Open(p.Filepath)
+	if err != nil {
+		return
+	}
+	defer reader.Close()
+
+	_, fileType, err = image.Decode(reader)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 //获取图片的主题色
 func (p *Probe) GetColorweave() (colorMap map[string]float64, err error) {
 	reader, err := os.Open(p.Filepath)
