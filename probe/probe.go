@@ -51,13 +51,13 @@ func ImgDownload(url string, store string) (p Probe, err error) {
 	if err != nil {
 		return
 	}
-	p.Type = resp.Header["Content-Type"][0]
+	p.Type = resp.Header.Get("Content-Type")
 
 	size, err := io.Copy(out, bytes.NewReader(pix))
 	if err != nil {
 		return
 	}
-	p.Filesize = strconv.FormatInt(size, 10)
+	p.Filesize = size
 
 	imagePoint, err := p.GetSize()
 	if err != nil {
@@ -81,7 +81,7 @@ func ImgDownload(url string, store string) (p Probe, err error) {
 func (p *Probe) FilesizeByUnit(unit string) (size float64, err error) {
 	sizeUnit := sizeMap[unit]
 
-	fileSize, err := strconv.ParseFloat(p.Filesize, 64)
+	fileSize := float64(p.Filesize)
 	if err != nil {
 		return
 	}
