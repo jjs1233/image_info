@@ -1,37 +1,89 @@
 package probe
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
+	"io/ioutil"
 	"math"
+	"net/http"
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	gwc "github.com/jyotiska/go-webcolors"
 	"github.com/nfnt/resize"
 )
 
-//图片文件大小
-func (p *Probe) Filesize() (size int64, err error) {
-	f, e := os.Stat(p.Filepath)
-	if e != nil {
-		return 0, e
+func ImgDownload(url string, store string) (p Probe, err error) {
+	path := strings.Split(url, "/")
+
+	var name string
+	if len(path) > 1 {
+		name = path[len(path)-1]
+	} else {
+		return p, errors.New("wrong download url")
 	}
-	return f.Size(), nil
+
+	out, err := os.Create(store + "/" + name)
+	if err != nil {
+		return
+	}
+	resp, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	pix, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	size, err := io.Copy(out, bytes.NewReader(pix))
+	if err != nil {
+		return
+	}
+	imageWidth, err := p.GetWidth()
+	if err != nil {
+		return
+	}
+	imageHeight, err := p.GetHeight()
+	if err != nil {
+		return
+	}
+	colorweave, err := p.GetColorweave()
+	if err != nil {
+		return
+	}
+
+	defer out.Close()
+	defer resp.Body.Close()
+
+	p.Filename = name
+	p.Filesize = string(size)
+	p.Filepath = store + "/" + name
+	p.Type = resp.Header["Content-Type"][0]
+	p.Width = string(imageWidth)
+	p.Height = string(imageHeight)
+	p.Colorweave = colorweave
+	return
 }
 
 //以单位获取图片的大小
 func (p *Probe) FilesizeByUnit(unit string) (size float64, err error) {
 	sizeUnit := sizeMap[unit]
-	fileSize, err := p.Filesize()
+
+	fileSize, err := strconv.ParseFloat(p.Filesize, 64)
 	if err != nil {
 		return
 	}
-	size = float64(fileSize) / sizeUnit
+
+	size = fileSize / sizeUnit
+
 	size, err = strconv.ParseFloat(fmt.Sprintf("%.2f", size), 64)
 	if err != nil {
 		return
@@ -110,21 +162,6 @@ func (p *Probe) GetSize() (point image.Point, err error) {
 	}
 
 	return image.Bounds().Size(), nil
-}
-
-func (p *Probe) GetType() (fileType string, err error) {
-	reader, err := os.Open(p.Filepath)
-	if err != nil {
-		return
-	}
-	defer reader.Close()
-
-	_, fileType, err = image.Decode(reader)
-	if err != nil {
-		return
-	}
-
-	return
 }
 
 //获取图片的主题色
